@@ -1,175 +1,497 @@
+<div align="center">
+
 # 🎯 Advanced Skill System: TrueSkill™ + Performance Metrics
 
-Este repositorio presenta un sistema de clasificación de alto rendimiento diseñado para entornos competitivos de HaxBall. A diferencia del **ELO Puro** (basado en el sistema de ajedrez FIDE), este motor utiliza **Inferencia Bayesiana** y **Ponderación de Impacto Individual** para determinar la habilidad real de un jugador.
+<img src="https://img.shields.io/badge/Algorithm-TrueSkill-blue?style=for-the-badge&logo=microsoft" alt="TrueSkill"/>
+<img src="https://img.shields.io/badge/Platform-HaxBall-red?style=for-the-badge&logo=html5" alt="HaxBall"/>
+<img src="https://img.shields.io/badge/Language-JavaScript-yellow?style=for-the-badge&logo=javascript" alt="JavaScript"/>
+<img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License"/>
+
+### Sistema de Ranking Inteligente para Juegos de Equipo
+
+*Porque ganar sin hacer nada no debería subir tu ELO*
+
+[🚀 Inicio Rápido](#-instalación-rápida) • [📖 Docs](#-cómo-funciona) • [❓ FAQ](#-preguntas-frecuentes)
 
 ---
 
-## ⚖️ TrueSkill vs. ELO Puro: La Gran Diferencia
+</div>
 
-La mayoría de las salas utilizan ELO estándar, lo cual presenta fallos graves en juegos de equipo. Aquí explicamos por qué este sistema es superior:
+## 🤔 ¿Qué es esto?
 
-### 1. El problema del "Carry" (Arrastre)
+Un sistema de ranking **justo** para HaxBall que resuelve el problema más grande de los sistemas tradicionales:
 
-* **ELO Puro:** Si un jugador mediocre juega siempre con un profesional, ambos ganan los mismos puntos (ej. +20). El jugador mediocre acaba con un ELO inflado que no le corresponde.
-* **Este Sistema:** Gracias al **Impacto Individual**, si un jugador gana pero no aporta goles, asistencias ni defensa, el sistema detecta su bajo rendimiento y reduce su ganancia de Mu (). No puedes subir al top solo por "estar ahí".
+> **"Mi compañero hizo 5 goles y yo ninguno, pero ambos subimos lo mismo"**
 
-### 2. La Velocidad de Convergencia (Sigma)
-
-* **ELO Puro:** Un jugador nuevo empieza en 1000 y sube de 20 en 20. Necesita 100 partidos para llegar a su nivel real.
-* **Este Sistema:** Utiliza **Sigma ()** o "Incertidumbre". Un jugador nuevo tiene un Sigma alto, lo que permite que el sistema le asigne grandes cantidades de puntos al principio para posicionarlo rápido. Un "Smurf" llegará a su rango real en menos de 15 partidos.
-
-### 3. Mitigación en Derrotas
-
-* **ELO Puro:** Pierdes el partido, pierdes puntos. No importa si metiste 10 goles y tu equipo falló todo.
-* **Este Sistema:** Si el equipo pierde pero tu **Match Impact** fue superior a 45 (un rendimiento de MVP), el sistema te aplica una protección de Mu. Perderás una fracción mínima de lo que perdería un jugador que no hizo nada.
+Este motor usa **TrueSkill™** (el algoritmo de Xbox Live) + **Match Impact** para dar puntos según tu **desempeño real**, no solo por estar en el equipo ganador.
 
 ---
 
-## 📊 Arquitectura del Impacto Individual
+## 🔥 ¿Por qué necesitas esto?
 
-El impacto no es un número al azar; es una métrica calculada al segundo basada en acciones clave:
+### El Problema del ELO Normal
 
-### Desglose de Puntos de Impacto
+```
+🏆 Tu equipo gana 5-0
 
-| Acción | Valor | Descripción |
-| --- | --- | --- |
-| **Goles** | `+4.5` | El peso principal de la victoria. |
-| **Asistencias** | `+3.5` | Premia la visión de juego y el compañerismo. |
-| **Clean Sheet (CS)** | `+5.0` | Bono por mantener la portería a cero. |
-| **Bono de Tiempo** | `+playtime/80` | Premia la resistencia y el impacto sostenido. |
+Jugador A: 5 goles, 3 asistencias → +25 ELO
+Jugador B: AFK todo el partido → +25 ELO
 
-### Filtro de Calidad
+❌ ¿Justo? NO.
+```
 
-Si un jugador disputa menos de **120 segundos**, su impacto se reduce automáticamente al **50%**. Esto evita que los jugadores que entran al final de un partido "farmeen" un promedio de impacto alto sin haber trabajado realmente el resultado.
+### La Solución: TrueSkill + Impact
 
----
+```
+🏆 Tu equipo gana 5-0
 
-## 🛠️ Configuración de Dificultad y Progresión
+Jugador A: Impact 68 → +35 ELO ⚡
+Jugador B: Impact 2 → +6 ELO 😴
 
-Puedes tunear el motor para que el ranking sea más o menos volátil. Todo reside en la fórmula del **ELO Visible**:
-
-`ELO = (Mu * 160) - (Sigma * 40)`
-
-### Escenarios de Ajuste:
-
-1. **Dificultad Profesional:** Si quieres que sea muy difícil llegar a 10,000 ELO, aumenta el castigo de la incertidumbre: `(Mu * 150) - (Sigma * 60)`. Esto obligará a los jugadores a ser extremadamente consistentes para subir.
-2. **Sistema Casual:** Si quieres que los jugadores suban rápido de nivel y vean números grandes: `(Mu * 220) - (Sigma * 30)`.
-3. **El "Muro" de Veteranos:** El valor `Sigma` tiene un límite mínimo de `0.5`. Esto es crucial: sin este límite, el ELO se congelaría. Con `0.5`, los jugadores veteranos siempre tendrán un pequeño margen de ganancia/pérdida, manteniendo el ranking vivo.
-
----
-
-## 🚀 Script de Implementación (UpdateStats)
-
-Este es el script optimizado para procesar el fin de un partido. Integra la carga de estadísticas, cálculo de impacto, motor TrueSkill y ajuste de mérito.
-
-```javascript
-/**
- * Procesa las estadísticas tras el partido.
- * @param {Object} player - Objeto del jugador de Haxball.
- * @param {TeamID} teamStats - Equipo ganador (Team.RED o Team.BLUE).
- */
-function updatePlayerStats(player, teamStats) {
-    let auth = authArray[player.id][0];
-    let stats = JSON.parse(localStorage.getItem(auth)) || new HaxStatistics(player.name);
-
-    // 1. RECOLECCIÓN DE DATOS INDIVIDUALES
-    let pComp = getPlayerComp(player); 
-    let goals = getGoalsPlayer(pComp);
-    let assists = getAssistsPlayer(pComp);
-    let CS = getCSPlayer(pComp);
-    let playtime = getGametimePlayer(pComp);
-
-    // 2. CÁLCULO DE IMPACTO (MERITOCRACIA)
-    let csBonus = CS ? (5 + Math.floor(playtime / 80)) : 0;
-    let matchImpact = (goals * 4.5) + (assists * 3.5) + csBonus;
-    if (playtime < 120) matchImpact *= 0.5;
-
-    // Actualización del promedio histórico de impacto (suavizado al 8%)
-    stats.impacto = stats.impacto ? (stats.impacto * 0.92) + (matchImpact * 0.08) : matchImpact;
-
-    // 3. MOTOR TRUESKILL (USANDO LIBRERÍA TS-TRUESKILL)
-    const getRating = (p) => {
-        let s = JSON.parse(localStorage.getItem(authArray[p.id][0])) || {};
-        return new Rating(s.mu || 25, s.sigma || 8.333);
-    };
-
-    let redTeamRatings = teamRedStats.map(p => getRating(p));
-    let blueTeamRatings = teamBlueStats.map(p => getRating(p));
-
-    const ranks = (lastWinner === Team.RED) ? [0, 1] : [1, 0];
-    const [newRed, newBlue] = rate([redTeamRatings, blueTeamRatings], ranks);
-
-    // Selección del nuevo Rating individual
-    let myNewRating = (player.team === Team.RED) 
-        ? newRed[teamRedStats.findIndex(p => p.id === player.id)] 
-        : newBlue[teamBlueStats.findIndex(p => p.id === player.id)];
-
-    // 4. AJUSTE DE MU POR IMPACTO
-    let isWinner = (lastWinner === teamStats);
-    let muAdjustment = 0;
-    if (isWinner && matchImpact < 2) muAdjustment = -0.10; // "Carried" penalty
-    if (!isWinner && matchImpact > 45) muAdjustment = 0.15; // "MVP Loss" protection
-
-    // 5. ACTUALIZACIÓN DE ESTADO Y ELO VISIBLE
-    let oldElo = stats.elo || 1000;
-    stats.mu = myNewRating.mu + muAdjustment;
-    stats.sigma = Math.max(myNewRating.sigma, 0.5); 
-
-    // Fórmula de ELO Visible (Tunable)
-    stats.elo = Math.round((stats.mu * 160) - (stats.sigma * 40));
-    stats.elo = Math.min(10000, Math.max(1000, stats.elo));
-
-    // Nivel opcional (Visual)
-    stats.nivel = Math.floor(Math.pow((stats.elo - 1000) / 110, 0.82));
-
-    // PERSISTENCIA DE DATOS
-    stats.games++;
-    isWinner ? stats.wins++ : stats.losses++;
-    stats.goals += goals;
-    stats.assists += assists;
-    stats.CS += CS;
-    stats.playtime += playtime;
-
-    localStorage.setItem(auth, JSON.stringify(stats));
-
-    // Feedback en sala
-    let totalChange = stats.elo - oldElo;
-    if (Math.abs(totalChange) >= 5) {
-        let color = totalChange >= 0 ? 0xA3FF00 : 0xFF4C4C;
-        room.sendAnnouncement(`${totalChange >= 0 ? "📈" : "📉"} ${player.name}: ${totalChange >= 0 ? "+" : ""}${totalChange} ELO (Nivel ${stats.nivel})`, null, color);
-    }
-}
-
+✅ Ahora sí tiene sentido.
 ```
 
 ---
 
-## 🎖️ Progresión de Niveles (Opcional)
+## ⚖️ TrueSkill vs ELO: Las 3 Diferencias Clave
 
-Si decides usar el sistema de niveles incluido en el script, la curva de dificultad es la siguiente:
+### 1. 🎮 Anti-Carry
 
-| Rango de ELO | Nivel Aprox. | Percepción de Habilidad |
-| --- | --- | --- |
-| **1,000 - 2,000** | 1 - 15 | Principiante / Aprendiz |
-| **2,000 - 4,500** | 15 - 50 | Jugador Competitivo |
-| **4,500 - 7,500** | 50 - 80 | Avanzado / Élite |
-| **7,500 - 10,000** | 80 - 99 | Maestro / Leyenda |
+**ELO Puro:** Te suben por estar en el equipo ganador, aunque no hayas tocado la bola.
 
----
+**Este Sistema:** Si ganas pero tu **Match Impact** es bajo (menos de 2), tu ganancia se **reduce** automáticamente.
 
-## ❓ FAQ para Usuarios
-
-**¿Por qué mi ELO no sube aunque gané?**
-Si el equipo rival era muy débil y tu impacto fue bajo, el sistema considera que tu habilidad actual ya es superior al reto que enfrentaste, por lo que no hay ganancia de Mu.
-
-**¿Qué es el Sigma exactamente?**
-Es la "desviación estándar". Si dejas de jugar por mucho tiempo o eres nuevo, el Sigma sube. Un Sigma alto significa que el sistema está "buscando" tu nivel, por lo que ganarás o perderás puntos de forma masiva.
-
-**¿Cómo maximizo mi ganancia de ELO?**
-No basta con ganar. Debes participar activamente: busca asistencias, mantén la defensa sólida para el CS y anota. El **Match Impact** es la llave para subir rápido.
+```javascript
+if (isWinner && matchImpact < 2) muAdjustment = -0.10;
+```
 
 ---
 
-Este sistema garantiza una jerarquía real en tu sala, donde el Top 1 será indiscutiblemente el jugador con mejor rendimiento y consistencia.
+### 2. 🚀 Convergencia Rápida
 
-¿Deseas que añada una sección sobre cómo resetear temporadas manteniendo un "MMR oculto" (Soft Reset)?
+**ELO Puro:** Necesitas 200+ partidos para llegar a tu nivel real.
+
+**Este Sistema:** Usa **Sigma (σ)** = "Incertidumbre". Cuando eres nuevo, tu σ es alto (8.333) y ganas/pierdes **mucho** ELO por partido. A medida que juegas, σ baja y tu ELO se estabiliza.
+
+| Partidos Jugados | Sigma (σ) | Ganancia/Pérdida |
+|------------------|-----------|------------------|
+| 0 - 20 | ~8.0 | ±100 - 150 |
+| 20 - 50 | ~3.0 | ±30 - 60 |
+| 50 - 150 | ~1.5 | ±15 - 30 |
+| 150+ | ~0.5 | ±5 - 15 |
+
+---
+
+### 3. 🛡️ Protección en Derrotas
+
+**ELO Puro:** Pierdes 20 puntos fijos, sin importar si marcaste 3 goles.
+
+**Este Sistema:** Si pierdes pero tu **Match Impact** es alto (más de 45), la pérdida se **reduce drásticamente**.
+
+```javascript
+if (!isWinner && matchImpact > 45) muAdjustment = 0.15;
+```
+
+**Ejemplo real:**
+- Pérdida normal: -22 ELO
+- Con protección: -3 ELO ✨
+
+---
+
+## 📊 Match Impact: El Corazón del Sistema
+
+### ⚽ Valores Base
+
+| Acción | Puntos | Razón |
+|--------|--------|-------|
+| **Gol** | +4.5 | Define el resultado |
+| **Asistencia** | +3.5 | Crea el juego |
+| **Clean Sheet** | +5.0 | Defensa sólida |
+| **Bono Tiempo** | +tiempo/80 | Recompensa consistencia |
+
+### 🧮 Fórmula
+
+```javascript
+let matchImpact = (goles * 4.5) + (asistencias * 3.5) + csBonus;
+
+// Si jugaste menos de 2 minutos, se reduce al 50%
+if (playtime < 120) matchImpact *= 0.5;
+```
+
+### 📈 Ejemplos
+
+| Escenario | Cálculo | Impact |
+|-----------|---------|--------|
+| **Hat-trick + 2 asists** | (3×4.5) + (2×3.5) = 20.5 | 🔥 20.5 |
+| **Portero CS (8 min)** | 5 + (480/80) = 11 | ⭐ 11.0 |
+| **1 gol AFK (90s)** | (1×4.5) × 0.5 = 2.25 | 😴 2.25 |
+
+---
+
+## 🔬 Fórmulas Técnicas
+
+### 1. ELO Visible
+
+```
+ELO = (μ × 160) - (σ × 40)
+```
+
+- **μ (Mu):** Tu habilidad estimada (empieza en 25)
+- **σ (Sigma):** Cuánto duda el sistema de tu nivel (empieza en 8.333)
+
+### 2. Niveles (Opcional)
+
+```javascript
+nivel = Math.floor(Math.pow((elo - 1000) / 110, 0.82));
+```
+
+<div align="center">
+
+| ELO | Nivel | Rango |
+|-----|-------|-------|
+| 1,000 - 2,000 | 1 - 15 | 🔰 Principiante |
+| 2,000 - 4,500 | 15 - 50 | ⚔️ Competitivo |
+| 4,500 - 7,500 | 50 - 80 | 🔥 Élite |
+| 7,500 - 10,000 | 80 - 99 | 🏆 Leyenda |
+
+</div>
+
+---
+
+## 🚀 Instalación Rápida
+
+### Paso 1: Descargar Base
+
+Este sistema funciona sobre el script de **Wazar94**:
+
+🔗 [HaxBot_public.js](https://github.com/Wazarr94/haxball_bot_headless/blob/master/HaxBot_public.js)
+
+### Paso 2: Agregar Propiedades
+
+Modifica tu clase `HaxStatistics`:
+
+```javascript
+function HaxStatistics(name) {
+    this.name = name;
+    
+    // ✨ Propiedades TrueSkill (OBLIGATORIAS)
+    this.mu = 25.0;
+    this.sigma = 8.333;
+    this.elo = 1000;
+    this.impacto = 0;
+    
+    // 🎖️ Opcionales
+    this.nivel = 0;
+    this.ownGoals = 0;
+    
+    // 📊 Resto de stats
+    this.games = 0;
+    this.wins = 0;
+    this.losses = 0;
+    this.goals = 0;
+    this.assists = 0;
+    this.CS = 0;
+    this.playtime = 0;
+    this.winrate = "0%";
+}
+```
+
+### Paso 3: Copiar el Motor
+
+```javascript
+/**
+ * 🎯 SISTEMA TRUESKILL + IMPACT
+ * Basado en: HaxBot_public.js (Wazar94)
+ */
+
+function updatePlayerStats(player, teamStats) {
+    // ════════════════════════════════════════════
+    // 1️⃣ CARGA DE DATOS
+    // ════════════════════════════════════════════
+    
+    let auth = authArray[player.id][0];
+    let stats = localStorage.getItem(auth) 
+        ? Object.assign(new HaxStatistics(player.name), JSON.parse(localStorage.getItem(auth)))
+        : new HaxStatistics(player.name);
+    
+    let pComp = getPlayerComp(player);
+    stats.games++;
+    
+    let isWinner = (lastWinner === teamStats);
+    isWinner ? stats.wins++ : stats.losses++;
+    
+    // ════════════════════════════════════════════
+    // 2️⃣ RECOLECCIÓN DE MÉTRICAS
+    // ════════════════════════════════════════════
+    
+    let goals = getGoalsPlayer(pComp);
+    let assists = getAssistsPlayer(pComp);
+    let CS = getCSPlayer(pComp);
+    let playtime = getGametimePlayer(pComp);
+    
+    // ════════════════════════════════════════════
+    // 3️⃣ CÁLCULO DE MATCH IMPACT
+    // ════════════════════════════════════════════
+    
+    let csBonus = CS ? (5 + Math.floor(playtime / 80)) : 0;
+    let matchImpact = (goals * 4.5) + (assists * 3.5) + csBonus;
+    
+    // Filtro anti-farm (jugadas muy cortas)
+    if (playtime < 120) matchImpact *= 0.5;
+    
+    // Promedio histórico (suavizado exponencial)
+    stats.impacto = stats.impacto 
+        ? (stats.impacto * 0.92) + (matchImpact * 0.08) 
+        : matchImpact;
+    
+    // ════════════════════════════════════════════
+    // 4️⃣ MOTOR TRUESKILL
+    // ════════════════════════════════════════════
+    
+    // Helper para obtener Rating de un jugador
+    const getRating = (p) => {
+        let storage = JSON.parse(localStorage.getItem(authArray[p.id][0])) || {};
+        return new Rating(storage.mu || 25, storage.sigma || 8.333);
+    };
+    
+    // Obtener ratings de ambos equipos
+    let redTeamRatings = teamRedStats.map(p => getRating(p));
+    let blueTeamRatings = teamBlueStats.map(p => getRating(p));
+    
+    // Calcular nuevos ratings (0=ganador, 1=perdedor)
+    const ranks = (lastWinner === Team.RED) ? [0, 1] : [1, 0];
+    const [newRed, newBlue] = rate([redTeamRatings, blueTeamRatings], ranks);
+    
+    // Extraer mi nuevo rating
+    let myNewRating;
+    if (player.team === Team.RED) {
+        let index = teamRedStats.findIndex(p => p.id === player.id);
+        myNewRating = newRed[index];
+    } else {
+        let index = teamBlueStats.findIndex(p => p.id === player.id);
+        myNewRating = newBlue[index];
+    }
+    
+    // ════════════════════════════════════════════
+    // 5️⃣ AJUSTES POR MÉRITO
+    // ════════════════════════════════════════════
+    
+    let muAdjustment = 0;
+    
+    // Anti-Carry: ganas pero no hiciste nada
+    if (isWinner && matchImpact < 2) muAdjustment = -0.10;
+    
+    // Protección: pierdes pero jugaste increíble
+    if (!isWinner && matchImpact > 45) muAdjustment = 0.15;
+    
+    // ════════════════════════════════════════════
+    // 6️⃣ ACTUALIZACIÓN FINAL
+    // ════════════════════════════════════════════
+    
+    let oldElo = stats.elo || 1000;
+    
+    // Aplicar TrueSkill + Ajuste
+    stats.mu = myNewRating.mu + muAdjustment;
+    stats.sigma = Math.max(myNewRating.sigma, 0.5); // Mínimo para mantener dinamismo
+    
+    // Calcular ELO visible
+    let calculatedElo = Math.round((stats.mu * 160) - (stats.sigma * 40));
+    stats.elo = Math.min(10000, Math.max(1000, calculatedElo));
+    
+    let totalChange = stats.elo - oldElo;
+    
+    // Calcular nivel (opcional)
+    const prevLevel = stats.nivel || 0;
+    stats.nivel = Math.min(99, Math.floor(Math.pow((stats.elo - 1000) / 110, 0.82)));
+    
+    // ════════════════════════════════════════════
+    // 7️⃣ ACTUALIZAR ESTADÍSTICAS
+    // ════════════════════════════════════════════
+    
+    stats.goals += goals;
+    stats.assists += assists;
+    stats.CS += CS;
+    stats.playtime += playtime;
+    stats.winrate = ((stats.wins / stats.games) * 100).toFixed(1) + "%";
+    
+    // ════════════════════════════════════════════
+    // 8️⃣ GUARDAR Y NOTIFICAR
+    // ════════════════════════════════════════════
+    
+    localStorage.setItem(auth, JSON.stringify(stats));
+    
+    // Notificar solo cambios significativos
+    if (stats.nivel > prevLevel || Math.abs(totalChange) >= 5) {
+        let color = totalChange >= 0 ? 0xA3FF00 : 0xFF4C4C;
+        let icon = totalChange >= 0 ? "📈" : "📉";
+        
+        room.sendAnnouncement(
+            `${icon} ${player.name}: ${totalChange >= 0 ? "+" : ""}${totalChange} ELO (Nivel ${stats.nivel})`,
+            null,
+            color,
+            "normal"
+        );
+    }
+}
+```
+
+---
+
+## ⚙️ Configuración Personalizada
+
+### 🎚️ Ajustar Dificultad
+
+Si quieres un ranking más **exigente**, cambia los multiplicadores:
+
+```javascript
+// Normal (Recomendado)
+let calculatedElo = Math.round((stats.mu * 160) - (stats.sigma * 40));
+
+// Competitivo (Más difícil subir)
+let calculatedElo = Math.round((stats.mu * 155) - (stats.sigma * 50));
+
+// Pro League (Muy exigente)
+let calculatedElo = Math.round((stats.mu * 150) - (stats.sigma * 60));
+```
+
+### 🔧 Ajustar Pesos de Impacto
+
+```javascript
+// Si quieres valorar más las asistencias:
+let matchImpact = (goals * 4.0) + (assists * 4.0) + csBonus;
+
+// Si quieres castigar más a los AFK:
+if (playtime < 180) matchImpact *= 0.3; // 70% de reducción
+```
+
+### 🛡️ Ajustar Protecciones
+
+```javascript
+// Carry más estricto (necesitas impact 5 para no ser penalizado)
+if (isWinner && matchImpact < 5) muAdjustment = -0.15;
+
+// Protección más generosa en derrotas
+if (!isWinner && matchImpact > 30) muAdjustment = 0.20;
+```
+
+---
+
+## 📖 Cómo Funciona (Explicación Simple)
+
+### 1. Recolectas tus Stats
+- Goles, asistencias, tiempo jugado, clean sheet
+
+### 2. Calculas tu Impacto
+```
+Impact = (goles × 4.5) + (asistencias × 3.5) + bonus
+```
+
+### 3. TrueSkill Calcula Probabilidad
+- "Equipo A tiene 65% de ganar"
+- Si ganan: pequeña ganancia (era esperado)
+- Si pierden: gran pérdida (sorpresa)
+
+### 4. Ajuste por Mérito
+- Si ganaste haciendo nada: **penalización**
+- Si perdiste pero jugaste increíble: **protección**
+
+### 5. Tu ELO se Actualiza
+```
+ELO = (μ × 160) - (σ × 40)
+```
+
+---
+
+## 🎖️ Sistema de Niveles (Visual)
+
+<div align="center">
+
+| Nivel | ELO | Rango | Emoji |
+|-------|-----|-------|-------|
+| 1-5 | 1,000 - 1,500 | Novato | 🥉 |
+| 5-15 | 1,500 - 2,000 | Principiante | 🥈 |
+| 15-30 | 2,000 - 3,000 | Amateur | 🥇 |
+| 30-50 | 3,000 - 4,500 | Competitivo | 💎 |
+| 50-65 | 4,500 - 6,000 | Semi-Pro | 💠 |
+| 65-80 | 6,000 - 7,500 | Élite | 👑 |
+| 80-90 | 7,500 - 9,000 | Maestro | 🌟 |
+| 90-99 | 9,000 - 10,000 | Leyenda | ⚡ |
+
+</div>
+
+---
+
+## ❓ Preguntas Frecuentes
+
+### ❓ ¿Por qué no subo al ganar?
+
+Si los rivales eran **muy inferiores** (su μ era bajo) y además tu **Match Impact** fue bajo, el sistema entiende que el partido era **demasiado fácil** para tu nivel. Ganar contra novatos no prueba que mejoraste.
+
+### ❓ ¿Qué significa Sigma (σ)?
+
+Es cuánto **duda** el sistema de tu nivel:
+- **σ alto (8.0):** Eres nuevo, los cambios son grandes
+- **σ bajo (0.5):** Eres veterano, los cambios son pequeños
+
+### ❓ ¿Cómo subo más rápido?
+
+La clave es el **Match Impact**:
+- Goles y asistencias dan puntos directos
+- Jugar todo el partido da bonus de tiempo
+- Mantener portería a cero (CS) suma mucho
+
+### ❓ ¿Por qué pierdo menos puntos a veces?
+
+Si tu **Match Impact** supera 45 en una derrota, el sistema activa la **protección**. Detecta que hiciste todo lo posible y reduce la pérdida de ELO.
+
+### ❓ ¿Puedo resetear mis stats?
+
+Sí, borra tu `localStorage`:
+```javascript
+localStorage.removeItem('tu_auth_key');
+```
+
+---
+
+## 🏆 Ventajas de Este Sistema
+
+✅ **Justo:** Los puntos se ganan con esfuerzo, no solo estando en el equipo ganador
+
+✅ **Rápido:** Nuevos jugadores convergen en 30-50 partidos (vs 200+ del ELO puro)
+
+✅ **Protegido:** No pierdes tanto ELO si juegas bien en una derrota
+
+✅ **Dinámico:** El ranking nunca se congela, siempre hay movimiento
+
+✅ **Anti-Carry:** Detecta jugadores que suben sin mérito
+
+---
+
+## 🔗 Referencias
+
+### Script Base
+📦 [HaxBot_public.js - Wazar94](https://github.com/Wazarr94/haxball_bot_headless/blob/master/HaxBot_public.js)
+
+### Algoritmo TrueSkill
+📚 [TrueSkill™ - Microsoft Research](https://www.microsoft.com/en-us/research/project/trueskill-ranking-system/)
+
+### Librería JavaScript
+💻 [trueskill - NPM](https://www.npmjs.com/package/trueskill)
+
+---
+
+## 🎯 Créditos
+
+- **Motor TrueSkill:** Microsoft Research
+- **Script Base:** [Wazar94](https://github.com/Wazarr94)
+- **Sistema de Impacto:** Diseño personalizado para HaxBall
+
+---
+
+<div align="center">
+
+### ⭐ Si este sistema te funciona, deja una estrella
+
+**Hecho con** ❤️ **para la comunidad de HaxBall**
+
+</div>

@@ -3,9 +3,7 @@
 # 🎯 Advanced Skill System: TrueSkill™ + Performance Metrics
 
 <img src="https://img.shields.io/badge/Algorithm-TrueSkill-blue?style=for-the-badge&logo=microsoft" alt="TrueSkill"/>
-<img src="https://img.shields.io/badge/Platform-HaxBall-red?style=for-the-badge&logo=html5" alt="HaxBall"/>
 <img src="https://img.shields.io/badge/Language-JavaScript-yellow?style=for-the-badge&logo=javascript" alt="JavaScript"/>
-<img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License"/>
 
 ### Sistema de Ranking Inteligente para Juegos de Equipo
 

@@ -279,7 +279,7 @@ Los valores que más afectan el comportamiento:
 
 ## Notas
 
-El cálculo de TrueSkill corre en un servidor local separado porque la librería no está pensada para correr dentro del entorno de HaxBall. Si querés el servidor también lo puedo subir.
+El cálculo de TrueSkill corre en un servidor local separado porque la librería no está pensada para correr dentro del entorno de HaxBall.
 
 El sistema tiene limitaciones. Si jugás de arquero y tu equipo domina, el impact va a ser bajo aunque hayas jugado bien — el clean sheet ayuda pero no compensa del todo.
 
